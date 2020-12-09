@@ -38,6 +38,8 @@ InstallDirRegKey HKCU "Software\${MUI_PRODUCT}" ""
 ;ShowInstDetails show
 ;ShowUninstDetails show
 
+!define SF_USELECTED  0
+
 !macro SecUnSelect SecId
   Push $0
   IntOp $0 ${SF_USELECTED} | ${SF_RO}
@@ -234,7 +236,7 @@ Function .onInit
   nsExec::Exec 'netsh dns show encryption'
   Pop $0
   IntCmp $0 0 disable_tap
-enable_tap:
+#enable_tap:
   Goto exit
 disable_tap:
   !insertmacro SecUnSelect ${SEC_TAP}
