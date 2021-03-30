@@ -64,10 +64,14 @@
     <SignManifests>true</SignManifests>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>9F2E8EFC3265B1E69F52F06478DBF0F7F6F8703D</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>8C69457B8C7B0AE7AB84E41F0BD6D7090904E49F</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestKeyFile>NextDNS.pfx</ManifestKeyFile>
+    <ManifestKeyFile>
+    </ManifestKeyFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />

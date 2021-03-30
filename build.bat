@@ -24,6 +24,6 @@ goto :EOF
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
 
-:Sign
-"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool" sign /q /n "NextDNS" /tr http://timestamp.globalsign.com/?signature=sha2 /td sha256 %~1 || goto error
+:sign
+"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool" sign /q /n "NextDNS" /tr http://timestamp.digicert.com /td sha256 /fd sha256 %~1 || goto error
 exit /B 0
