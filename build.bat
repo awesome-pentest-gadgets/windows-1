@@ -10,9 +10,7 @@ C:\Go\bin\go build -o .\bin\i386\service.exe . || goto :error
 
 cd ..
 
-call :sign dnsunleak\bin\dnsunleak.exe
-call :sign service\bin\amd64\service.exe
-call :sign service\bin\i386\service.exe
+call :sign gui\bin\gui.exe dnsunleak\bin\dnsunleak.exe service\bin\amd64\service.exe service\bin\i386\service.exe
 
 "C:\Program Files (x86)\NSIS\makensis.exe" nsis\NextDNSSetup.nsi || goto :error
 
