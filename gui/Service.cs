@@ -39,6 +39,9 @@ namespace NextDNS
             public string error;
 
             [DataMember]
+            public string upstreamHostName;
+
+            [DataMember]
             public string configuration;
 
             [DataMember]

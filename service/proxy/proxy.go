@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,8 +55,22 @@ type Proxy struct {
 	dedup dedup
 }
 
+func (p *Proxy) SetUpstreamHostName(hostname string) {
+	u, err := url.Parse(p.Upstream)
+	if err != nil {
+		return
+	}
+	u.Host = hostname
+	p.Upstream = u.String()
+}
+
 func (p *Proxy) SetConfigID(id string) {
-	p.Upstream = "https://dns.nextdns.io/" + id
+	u, err := url.Parse(p.Upstream)
+	if err != nil {
+		return
+	}
+	u.Path = "/" + id
+	p.Upstream = u.String()
 }
 
 func (p *Proxy) SetDeviceInfo(name, model, id, version string) {

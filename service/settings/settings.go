@@ -3,6 +3,7 @@ package settings
 type Settings struct {
 	Enabled          bool
 	Configuration    string
+	UpstreamHostName string
 	ReportDeviceName bool
 	CheckUpdates     bool
 	UpdateChannel    string
@@ -15,6 +16,9 @@ func FromMap(m map[string]interface{}) Settings {
 	}
 	if v, ok := m["configuration"].(string); ok {
 		s.Configuration = v
+	}
+	if v, ok := m["upstreamHostName"].(string); ok {
+		s.UpstreamHostName = v
 	}
 	if v, ok := m["reportDeviceName"].(bool); ok {
 		s.ReportDeviceName = v

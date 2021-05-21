@@ -20,6 +20,7 @@ func Available() bool {
 }
 
 type Config struct {
+	hostname    string
 	id          string
 	deviceName  string
 	deviceModel string
@@ -48,6 +49,10 @@ func (c *Config) setState(s string) {
 	if c.OnStateChange != nil {
 		c.OnStateChange(s)
 	}
+}
+
+func (c *Config) SetUpstreamHostName(hostname string) {
+	c.hostname = hostname
 }
 
 func (c *Config) SetConfigID(id string) {
@@ -118,10 +123,15 @@ func (c *Config) Stop() error {
 }
 
 func (c *Config) url() string {
+	hostname := "windows.dns.nextdns.io"
+	if c.hostname != "" {
+		hostname = c.hostname
+	}
 	if c.deviceName == "" {
-		return fmt.Sprintf("https://windows.dns.nextdns.io/%s", c.id)
+		return fmt.Sprintf("https://%s/%s", hostname, c.id)
 	} else {
-		return fmt.Sprintf("https://windows.dns.nextdns.io/%s/%s/%s/%s",
+		return fmt.Sprintf("https://%s/%s/%s/%s/%s",
+			hostname,
 			c.id,
 			url.PathEscape(c.deviceName),
 			url.PathEscape(c.deviceModel),

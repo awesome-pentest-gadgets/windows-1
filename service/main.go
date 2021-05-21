@@ -22,6 +22,7 @@ import (
 
 type impl interface {
 	SetConfigID(id string)
+	SetUpstreamHostName(hostname string)
 	SetDeviceInfo(name, model, id, version string)
 	State() string
 	Start() error
@@ -120,6 +121,9 @@ func run(debug bool) error {
 					// Apply settings
 					stg := settings.FromMap(e.Data)
 					s.impl.SetConfigID(stg.Configuration)
+					if stg.UpstreamHostName != "" {
+						s.impl.SetUpstreamHostName(stg.UpstreamHostName)
+					}
 					if stg.ReportDeviceName {
 						s.impl.SetDeviceInfo(getHostname(), getModel(), getShortMachineID(), vers)
 					} else {
