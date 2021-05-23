@@ -16,7 +16,7 @@ Name NextDNS
 BrandingText "NextDNS Inc"
 !define VERSIONMAJOR 2
 !define VERSIONMINOR 0
-!define VERSIONBUILD 2
+!define VERSIONBUILD 3
 !define MUI_PRODUCT "NextDNS"
 !define MUI_FILE "NextDNS"
 !define MUI_VERSION "${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}" 
