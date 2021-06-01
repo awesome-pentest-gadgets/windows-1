@@ -3,10 +3,10 @@ msbuild nextdns-windows.sln /t:Rebuild /p:Configuration=Release /p:Platform="any
 cd service
 
 set GOARCH=amd64
-C:\Go\bin\go build -o .\bin\amd64\service.exe . || goto :error
+go build -o .\bin\amd64\service.exe . || goto :error
 
 set GOARCH=386
-C:\Go\bin\go build -o .\bin\i386\service.exe . || goto :error
+go build -o .\bin\i386\service.exe . || goto :error
 
 cd ..
 
