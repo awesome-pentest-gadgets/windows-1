@@ -10,18 +10,14 @@ go build -o .\bin\i386\service.exe . || goto :error
 
 cd ..
 
-call :sign gui\bin\gui.exe dnsunleak\bin\dnsunleak.exe service\bin\amd64\service.exe service\bin\i386\service.exe
+"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool" sign /q /n "NextDNS" /tr http://timestamp.digicert.com /td sha256 /fd sha256 gui\bin\gui.exe dnsunleak\bin\dnsunleak.exe service\bin\amd64\service.exe service\bin\i386\service.exe || goto error
 
 "C:\Program Files (x86)\NSIS\makensis.exe" nsis\NextDNSSetup.nsi || goto :error
 
-call :sign NextDNSSetup-*.exe
+"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool" sign /q /n "NextDNS" /tr http://timestamp.digicert.com /td sha256 /fd sha256 NextDNSSetup-*.exe || goto error
 
 goto :EOF
 
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
-
-:sign
-"C:\Program Files (x86)\Windows Kits\10\bin\x86\signtool" sign /q /n "NextDNS" /tr http://timestamp.digicert.com /td sha256 /fd sha256 %~1 || goto error
-exit /B 0
