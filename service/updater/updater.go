@@ -66,19 +66,16 @@ func (u *Updater) SetAutoRun(enabled bool) {
 func (u *Updater) run() {
 	var ctx context.Context
 	ctx, u.stop = context.WithCancel(context.Background())
-	t := time.NewTicker(24 * time.Hour)
-	if err := u.CheckNow(); err != nil {
-		u.logErr(err)
-	}
-	defer t.Stop()
+	next := time.After(5 * time.Minute)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-next:
 			if err := u.CheckNow(); err != nil {
 				u.logErr(err)
 			}
+			next = time.After(24 * time.Hour)
 		}
 	}
 }

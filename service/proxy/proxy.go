@@ -6,9 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,14 +27,9 @@ const (
 )
 
 type Proxy struct {
-	Upstream string
-
 	ExtraHeaders http.Header
 
 	OnStateChange func(state string)
-
-	// Transport is the http.RoundTripper used to perform DoH requests.
-	Transport http.RoundTripper
 
 	// QueryLog specifies an optional log function called for each received query.
 	QueryLog func(msgID uint16, qname string)
@@ -47,6 +40,11 @@ type Proxy struct {
 
 	InfoLog func(string)
 
+	manager *endpoint.Manager
+
+	hostname string
+	id       string
+
 	mu    sync.Mutex
 	tun   io.ReadWriteCloser
 	state string
@@ -56,21 +54,11 @@ type Proxy struct {
 }
 
 func (p *Proxy) SetUpstreamHostName(hostname string) {
-	u, err := url.Parse(p.Upstream)
-	if err != nil {
-		return
-	}
-	u.Host = hostname
-	p.Upstream = u.String()
+	p.hostname = hostname
 }
 
 func (p *Proxy) SetConfigID(id string) {
-	u, err := url.Parse(p.Upstream)
-	if err != nil {
-		return
-	}
-	u.Path = "/" + id
-	p.Upstream = u.String()
+	p.id = id
 }
 
 func (p *Proxy) SetDeviceInfo(name, model, id, version string) {
@@ -128,47 +116,56 @@ func (p *Proxy) startLocked() (err error) {
 	if p.tun, err = tun.OpenTunDevice("tun0", "192.0.2.43", "192.0.2.42", "255.255.255.0", []string{"192.0.2.42"}); err != nil {
 		return err
 	}
-	p.Transport = p.nextdnsTransport()
+	p.manager = p.nextdnsManager()
 	go p.run()
 	return nil
 }
 
-// nextdnsTransport returns a endpoint.Manager configured to connect to NextDNS
+// nextdnsManager returns a endpoint.Manager configured to connect to NextDNS
 // using different steering techniques.
-func (p *Proxy) nextdnsTransport() http.RoundTripper {
+func (p *Proxy) nextdnsManager() *endpoint.Manager {
+	hostname := p.hostname
+	if hostname == "" {
+		hostname = "windows.dns.nextdns.io"
+	}
 	return &endpoint.Manager{
 		Providers: []endpoint.Provider{
 			// Prefer unicast routing.
-			&endpoint.SourceURLProvider{
-				SourceURL: "https://router.nextdns.io",
-				Client: &http.Client{
-					// Trick to avoid depending on DNS to contact the router API.
-					Transport: endpoint.MustNew(fmt.Sprintf("https://router.nextdns.io#%s", []string{
-						"216.239.32.21",
-						"216.239.34.21",
-						"216.239.36.21",
-						"216.239.38.21",
-					}[rand.Intn(3)])),
-				},
+			&endpoint.SourceHTTPSSVCProvider{
+				Hostname: hostname,
+				Source:   endpoint.MustNew(fmt.Sprintf("https://%s#45.90.28.0,2a07:a8c0::,45.90.30.0,2a07:a8c1::", hostname)),
+			},
+			// Try routing without anycast bootstrap.
+			&endpoint.SourceHTTPSSVCProvider{
+				Hostname: hostname,
+				Source:   endpoint.MustNew("https://" + hostname),
 			},
 			// Fallback on anycast.
-			endpoint.StaticProvider([]*endpoint.Endpoint{
-				endpoint.MustNew("https://dns1.nextdns.io#45.90.28.0"),
-				endpoint.MustNew("https://dns2.nextdns.io#45.90.30.0"),
-			}),
-			// Fallback on CDN fronting.
-			endpoint.StaticProvider([]*endpoint.Endpoint{
-				endpoint.MustNew("https://d1xovudkxbl47e.cloudfront.net"),
+			endpoint.StaticProvider([]endpoint.Endpoint{
+				endpoint.MustNew("https://dns1.nextdns.io#45.90.28.0,2a07:a8c0::"),
+				endpoint.MustNew("https://dns2.nextdns.io#45.90.30.0,2a07:a8c1::"),
 			}),
 		},
-		OnError: func(e *endpoint.Endpoint, err error) {
+		InitEndpoint: endpoint.MustNew(fmt.Sprintf("https://%s#45.90.28.0,2a07:a8c0::,45.90.30.0,2a07:a8c1::", hostname)),
+		OnError: func(e endpoint.Endpoint, err error) {
 			if p.ErrorLog != nil {
-				p.ErrorLog(fmt.Errorf("Endpoint failed: %s: %v", e.Hostname, err))
+				p.ErrorLog(fmt.Errorf("Endpoint failed: %s: %v", e, err))
 			}
 		},
-		OnChange: func(e *endpoint.Endpoint) {
+		OnProviderError: func(pr endpoint.Provider, err error) {
+			p.ErrorLog(fmt.Errorf("Endpoint provider failed: %v: %v", pr, err))
+		},
+		OnConnect: func(ci *endpoint.ConnectInfo) {
+			p.InfoLog(fmt.Sprintf("Connected %s (con=%dms tls=%dms, %s, %s)",
+				ci.ServerAddr,
+				ci.ConnectTimes[ci.ServerAddr]/time.Millisecond,
+				ci.TLSTime/time.Millisecond,
+				ci.Protocol,
+				ci.TLSVersion))
+		},
+		OnChange: func(e endpoint.Endpoint) {
 			if p.InfoLog != nil {
-				p.InfoLog(fmt.Sprintf("Switching endpoint: %s", e.Hostname))
+				p.InfoLog(fmt.Sprintf("Switching endpoint: %s", e))
 			}
 		},
 	}
@@ -190,7 +187,7 @@ func (p *Proxy) Stop() (err error) {
 		close(p.stop)
 		p.stop = nil
 	}
-	p.Transport = nil
+	p.manager = nil
 	return err
 }
 
@@ -351,11 +348,14 @@ func (p *Proxy) run() {
 		go func() {
 			qname := lazyQName(buf)
 			p.logQuery(msgID, qname)
-			res, err := p.resolve(buf)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			res, err := p.resolve(ctx, buf)
 			if err != nil {
 				p.logErr(fmt.Errorf("resolve: %x %v", msgID, err))
 				return
 			}
+			defer res.Close()
 			buf = buf[:maxSize] // reset buf size to it's underlaying size
 			rsize, err := readDNSResponse(res, buf)
 			if err != nil {
@@ -400,27 +400,33 @@ func (p *Proxy) unleak(ctx context.Context) error {
 	return cmd.Start()
 }
 
-func (p *Proxy) resolve(buf []byte) (io.ReadCloser, error) {
-	req, err := http.NewRequest("POST", p.Upstream, bytes.NewReader(buf))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/dns-packet")
-	for name, hdrs := range p.ExtraHeaders {
-		req.Header[name] = hdrs
-	}
-	rt := p.Transport
-	if rt == nil {
-		rt = http.DefaultTransport
-	}
-	res, err := rt.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error code: %d", res.StatusCode)
-	}
-	return res.Body, nil
+func (p *Proxy) resolve(ctx context.Context, buf []byte) (body io.ReadCloser, err error) {
+	err = p.manager.Do(ctx, func(e endpoint.Endpoint) error {
+		rt, ok := e.(*endpoint.DOHEndpoint)
+		if !ok {
+			return fmt.Errorf("%T :unsupported endpoint", e)
+		}
+		req, err := http.NewRequest("POST", "https://server/"+p.id, bytes.NewReader(buf))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/dns-packet")
+		for name, hdrs := range p.ExtraHeaders {
+			req.Header[name] = hdrs
+		}
+		res, err := rt.RoundTrip(req)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode != http.StatusOK {
+			res.Body.Close()
+			return fmt.Errorf("error code: %d", res.StatusCode)
+		}
+		body = res.Body
+		return nil
+	})
+
+	return body, err
 }
 
 func readDNSResponse(r io.Reader, buf []byte) (int, error) {

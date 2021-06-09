@@ -161,7 +161,6 @@ func run(debug bool) error {
 		}
 	} else {
 		s.impl = &proxy.Proxy{
-			Upstream: "https://dns.nextdns.io/",
 			// Bootstrap with a fake transport that avoid DNS lookup
 			OnStateChange: func(state string) {
 				broadcast("status", map[string]interface{}{"state": state})

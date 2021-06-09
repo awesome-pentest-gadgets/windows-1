@@ -54,12 +54,20 @@ func (s *Server) Broadcast(e Event) error {
 	b = append(b, '\n')
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	var deadClients []net.Conn
 	for _, c := range s.clients {
 		_, err = c.Write(b)
 		if err != nil {
+			if isClosedError(err) {
+				deadClients = append(deadClients, c)
+				continue
+			}
 			s.logErr(fmt.Errorf("write event: %v", err))
 		}
+	}
+	s.mu.Unlock()
+	for _, c := range deadClients {
+		s.removeClient(c)
 	}
 	return nil
 }

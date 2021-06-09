@@ -1,6 +1,7 @@
 package ctl
 
 import (
+	"errors"
 	"net"
 
 	"github.com/Microsoft/go-winio"
@@ -30,4 +31,8 @@ func (s *Server) run(l net.Listener) {
 		}
 		go s.handleEvents(c)
 	}
+}
+
+func isClosedError(err error) bool {
+	return errors.Is(err, winio.ErrFileClosed)
 }
