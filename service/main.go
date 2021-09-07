@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"hash/crc64"
 	"log"
 	"net"
 	"os"
@@ -222,10 +221,10 @@ func getHostname() string {
 }
 
 func getShortMachineID() string {
-	uuid, err := machineid.ID()
-	if err != nil {
-		return ""
+	deviceID, _ := machineid.ProtectedID("NextDNS")
+	if len(deviceID) > 5 {
+		// No need to be globally unique.
+		deviceID = deviceID[:5]
 	}
-	sum := crc64.Checksum([]byte(uuid), crc64.MakeTable(crc64.ISO))
-	return fmt.Sprintf("%x", sum)[:5]
+	return strings.ToUpper(deviceID)
 }
