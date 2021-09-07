@@ -448,7 +448,7 @@ func readDNSResponse(r io.Reader, buf []byte) (int, error) {
 	return n, nil
 }
 
-// lazyMsgID parses the message ID from a DNS query wything trying to parse or
+// lazyMsgID parses the message ID from a DNS query without trying to parse or
 // validate the whole query.
 func lazyMsgID(buf []byte) uint16 {
 	if len(buf) < 30 {

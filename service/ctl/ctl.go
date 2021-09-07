@@ -54,6 +54,7 @@ func (s *Server) Broadcast(e Event) error {
 	b = append(b, '\n')
 
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	var deadClients []net.Conn
 	for _, c := range s.clients {
 		_, err = c.Write(b)
@@ -65,9 +66,8 @@ func (s *Server) Broadcast(e Event) error {
 			s.logErr(fmt.Errorf("write event: %v", err))
 		}
 	}
-	s.mu.Unlock()
 	for _, c := range deadClients {
-		s.removeClient(c)
+		s.removeClientLocked(c)
 	}
 	return nil
 }
@@ -109,6 +109,10 @@ func (s *Server) addClient(c net.Conn) {
 func (s *Server) removeClient(c net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.removeClientLocked(c)
+}
+
+func (s *Server) removeClientLocked(c net.Conn) {
 	clients := make([]net.Conn, 0, len(s.clients))
 	for _, _c := range s.clients {
 		if c == _c {
