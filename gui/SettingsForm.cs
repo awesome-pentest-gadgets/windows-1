@@ -100,7 +100,7 @@ namespace NextDNS
                             toggle.Text = "Enable";
                             break;
                         case StateStopping:
-                            toggle.Text = "Disonnecting...";
+                            toggle.Text = "Disconnecting...";
                             break;
                         case StateStarting:
                         case StateReasserting:
